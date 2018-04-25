@@ -502,10 +502,16 @@ void fermat_factorization_method(mpz &n){
     mpz n_cpy;
     mpz_set(n_cpy.value, n.value);
 
+    if (mpz_perfect_square_p(n_cpy.value) != 0){
+        mpz_sqrt(n_cpy.value, n_cpy.value);
+        display("p: ", n_cpy.value);
+        show_hex(n_cpy);
+        return;
+    }
+
     mpz a;
     mpz_sqrt(a.value, n_cpy.value);
     mpz_add_ui(a.value, a.value, 1);    // ceil(sqrt(N))
-
 
     mpz a2;
     mpz_mul(a2.value, a.value, a.value);    // a2 <- a*a
@@ -513,6 +519,7 @@ void fermat_factorization_method(mpz &n){
 
     mpz b2;
     mpz_sub(b2.value, a2.value, n_cpy.value);   // b2 <- a*a - N
+
 
     while (mpz_perfect_square_p(b2.value) == 0){
 
@@ -522,21 +529,14 @@ void fermat_factorization_method(mpz &n){
 
         mpz_sub(b2.value, a2.value, n_cpy.value);
     }
-
-    display("b2: ", b2.value);
-
     mpz p, b_sqr;
-
     mpz_sqrt(b_sqr.value, b2.value);
 
-    display("sqrt b: ", b_sqr.value);
-    display("a: ", a.value);
+    mpz_sub(p.value, a.value, b_sqr.value);
 
-    mpz_add_ui(p.value, a.value, 1);
-
-//    display("n: ", n.value);
-
-    display("p: ", a.value);
+    display("p: ", p.value);
+    show_hex(p);
+    std::cout << std::endl;
 
 }
 
@@ -615,7 +615,7 @@ int main(int argc, char* argv[]) {
 
         return 0;
     }
-
+//
     if (encrypt.size() > 0){
         // Encryption
         mpz e, n, m;
@@ -645,7 +645,7 @@ int main(int argc, char* argv[]) {
 
         return 0;
     }
-
+//
     if (decrypt.size() > 0){
         // Decryption
         mpz d, n, c;
@@ -672,7 +672,7 @@ int main(int argc, char* argv[]) {
         return 0;
 
     }
-
+//
     if (crack.size() > 0){
         mpz n;
 
