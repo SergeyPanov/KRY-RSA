@@ -1,6 +1,7 @@
 #include <iostream>
-#include "/Users/sergeypanov/bin/gmp/include/gmp.h"
+//#include "/Users/sergeypanov/bin/gmp/include/gmp.h"
 #include <random>
+#include <gmp.h>
 #include <unistd.h>
 #include <string>
 
@@ -496,25 +497,70 @@ void pollar_rho_factorization_star(mpz &n, mpz &p, mpz &q){
 
 }
 
+
+void fermat_factorization_method(mpz &n){
+    mpz n_cpy;
+    mpz_set(n_cpy.value, n.value);
+
+    mpz a;
+    mpz_sqrt(a.value, n_cpy.value);
+    mpz_add_ui(a.value, a.value, 1);    // ceil(sqrt(N))
+
+
+    mpz a2;
+    mpz_mul(a2.value, a.value, a.value);    // a2 <- a*a
+
+
+    mpz b2;
+    mpz_sub(b2.value, a2.value, n_cpy.value);   // b2 <- a*a - N
+
+    while (mpz_perfect_square_p(b2.value) == 0){
+
+        mpz_add_ui(a.value, a.value, 1);
+
+        mpz_mul(a2.value, a.value, a.value);
+
+        mpz_sub(b2.value, a2.value, n_cpy.value);
+    }
+
+    display("b2: ", b2.value);
+
+    mpz p, b_sqr;
+
+    mpz_sqrt(b_sqr.value, b2.value);
+
+    display("sqrt b: ", b_sqr.value);
+    display("a: ", a.value);
+
+    mpz_add_ui(p.value, a.value, 1);
+
+//    display("n: ", n.value);
+
+    display("p: ", a.value);
+
+}
+
 void RSA_cracker(mpz &n){
     mpz n_cpy;
     mpz_set(n_cpy.value,n.value);
 
+    fermat_factorization_method(n);
 
-    mpz p, q;
-    if (simple_factorization(n, p, q)){
-        display("p factorized by simple: ", p.value);
-        show_hex(p);
-        std::cout << std::endl;
-//        display("q factorized by simple: ", q.value);
 
-    } else{
-        pollar_rho_factorization_star(n_cpy, p, q);
-        display("p factorized by rho: ", p.value);
-        show_hex(p);
-        std::cout << std::endl;
-//        display("q factorized by rho: ", q.value);
-    }
+//    mpz p, q;
+//    if (simple_factorization(n, p, q)){
+//        display("p factorized by simple: ", p.value);
+//        show_hex(p);
+//        std::cout << std::endl;
+////        display("q factorized by simple: ", q.value);
+//
+//    } else{
+//        pollar_rho_factorization_star(n_cpy, p, q);
+//        display("p factorized by rho: ", p.value);
+//        show_hex(p);
+//        std::cout << std::endl;
+////        display("q factorized by rho: ", q.value);
+//    }
 }
 
 std::vector< std::string > get_opts(int argc, char* argv[], char key){
@@ -635,7 +681,7 @@ int main(int argc, char* argv[]) {
         flag = mpz_set_str(n.value, crack[1].c_str(), 16);
         assert(flag == 0);
 
-        std::cout << mpz_sizeinbase(n.value, 2) << std::endl;
+//        std::cout << mpz_sizeinbase(n.value, 2) << std::endl;
         RSA_cracker(n);
     }
 
