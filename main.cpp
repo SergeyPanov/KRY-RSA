@@ -1,10 +1,9 @@
 #include <iostream>
-//#include "/Users/sergeypanov/bin/gmp/include/gmp.h"
 #include <random>
 #include <gmp.h>
 #include <unistd.h>
 #include <string>
-
+#include <assert.h>
 
 #define ITERATIONS 1000000
 #define K 100
