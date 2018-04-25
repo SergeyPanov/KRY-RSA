@@ -3,7 +3,7 @@ GFLAGS=-lgmp -std=c++11
 all: compile
 
 compile: main.cpp
-	$(GCC) $(GFLAGS) -o rsa.o main.cpp
+	$(GCC) $(GFLAGS) -o kry main.cpp
 
 clean:
-	rm *.o
+	rm kry

@@ -1,6 +1,10 @@
 #include <iostream>
 #include "/Users/sergeypanov/bin/gmp/include/gmp.h"
 #include <random>
+#include <unistd.h>
+#include <string>
+
+
 #define ITERATIONS 1000000
 #define K 100
 
@@ -17,6 +21,11 @@ public:
     }
 
 };
+
+
+void show_hex(mpz &n){
+    gmp_printf("%#Zx ", n.value);
+}
 
 void display(std::string msg, mpz_t number){
     std::cout << msg;
@@ -356,22 +365,17 @@ void set_e(int min, mpz &e, mpz &phi, int bit_size){
                 return;
             }
         }
-
     }
-
 }
 
 //  Setup all used variables
 void RSA_prepare(mpz &p, mpz &q, mpz &n, mpz &e, mpz &d, int bit_size){
 
     set_prime(bit_size/2, p);   // Get p
-    display("p: ", p.value);
 
     set_prime(bit_size/2, q);   // Get q
-    display("q: ", q.value);
 
     mpz_mul(n.value, p.value, q.value); // Get n
-    display("n: ", n.value);
 
     mpz p_dec, q_dec;
 
@@ -381,16 +385,9 @@ void RSA_prepare(mpz &p, mpz &q, mpz &n, mpz &e, mpz &d, int bit_size){
     mpz phi;
     mpz_mul(phi.value, p_dec.value, q_dec.value);   // Get phi
 
-    display("phi: ", phi.value);
-
     set_e(1, e, phi, bit_size);   // Get e
 
-    display("e: ", e.value);
-
     set_inverse(e.value, phi.value, d.value);
-
-    display("d: ", d.value);
-
 }
 
 // Cipher input message
@@ -459,8 +456,6 @@ void pollar_rho_factorization_star(mpz &n, mpz &p, mpz &q){
 
     set_random(1, n.value, c.value);    // Set c <- [2 .. N)
 
-    display("c: ", c.value);
-
     mpz_set_ui(d.value, 1);
 
     while (mpz_cmp_ui(d.value, 1) == 0){
@@ -480,8 +475,6 @@ void pollar_rho_factorization_star(mpz &n, mpz &p, mpz &q){
         mpz_mod(y.value, y.value, n.value); // x <-  ((y^2 mod n) + c + n) mod n
 
 
-
-
         mpz substract;
 
         mpz_sub(substract.value, x.value, y.value);
@@ -492,6 +485,7 @@ void pollar_rho_factorization_star(mpz &n, mpz &p, mpz &q){
 
 
         if (mpz_cmp(d.value, n.value) == 0){
+            std::cout << "recursion" << std::endl;
             pollar_rho_factorization_star(n, p, q);
         }
     }
@@ -510,78 +504,142 @@ void RSA_cracker(mpz &n){
     mpz p, q;
     if (simple_factorization(n, p, q)){
         display("p factorized by simple: ", p.value);
-        display("q factorized by simple: ", q.value);
+        show_hex(p);
+        std::cout << std::endl;
+//        display("q factorized by simple: ", q.value);
 
     } else{
         pollar_rho_factorization_star(n_cpy, p, q);
         display("p factorized by rho: ", p.value);
-        display("q factorized by rho: ", q.value);
+        show_hex(p);
+        std::cout << std::endl;
+//        display("q factorized by rho: ", q.value);
     }
-
 }
 
-int main() {
-    mpz p, q, n, e, d;
+std::vector< std::string > get_opts(int argc, char* argv[], char key){
+    std::vector< std::string > params;
 
-    RSA_prepare(p, q, n, e, d, 50);
+    bool should_read = false;
+    char k;
+    for (int i = 1; i < argc; ++i) {
 
-//    mpz_set_ui(n.value, 3549910979);
+        if (argv[i][0] == '-'){
+            k = argv[i][1];
+            should_read = !should_read;
+        }
 
-    RSA_cracker(n);
-//    std::cout << mpz_sizeinbase(e.value, 2)  <<std::endl;
+        if (k == key && should_read){
+            params.push_back(argv[i]);
+        }
+    }
 
-//    mpz m, cm;
-//
-//    std::string input_str = "397a52dccd";
-//
-//    mpz input_val;
-//    mpz_set_ui(input_val.value, 0);
-//
-//    mpz_set_str(input_val.value, input_str.c_str(), 16);
-//
-//
-//    display("plain input: ", input_val.value);
-//
-//    cipher(e, n, input_val, cm);
-//
-//    display("ciphered text: ", cm.value);
-//
-//    mpz dm;
-//    decipher(d, n, cm, dm);
-//
-//    display("deciphered: ", dm.value);
+    return params;
+}
 
+int main(int argc, char* argv[]) {
+
+
+    std::vector<std::string> generate = get_opts(argc, argv, 'g');
+
+    std::vector<std::string> encrypt = get_opts(argc, argv, 'e');
+
+    std::vector<std::string> decrypt = get_opts(argc, argv, 'd');
+
+    std::vector<std::string> crack = get_opts(argc, argv, 'b');
+
+    if (generate.size() > 0){
+        // Generate
+        int bit_size;
+
+        mpz p, q, n, e, d;
+
+        bit_size = std::stoi(generate[generate.size() - 1]);
+
+        RSA_prepare(p, q, n, e, d, bit_size);
+
+        show_hex(p);
+        show_hex(q);
+        show_hex(n);
+        show_hex(e);
+        show_hex(d);
+
+//        std::cout << "e: " << mpz_sizeinbase(e.value, 2) << std::endl;
+        std::cout << std::endl;
+
+        return 0;
+    }
+
+    if (encrypt.size() > 0){
+        // Encryption
+        mpz e, n, m;
+
+        int flag;
+
+        encrypt[1].erase(0, 2); // Remove 0x
+        flag = mpz_set_str(e.value, encrypt[1].c_str(), 16);
+        assert(flag == 0);
+
+
+        encrypt[2].erase(0, 2); // Remove 0x
+        flag = mpz_set_str(n.value, encrypt[2].c_str(), 16);
+        assert(flag == 0);
+
+        encrypt[3].erase(0, 2); // Remove 0x
+        flag = mpz_set_str(m.value, encrypt[3].c_str(), 16);
+        assert(flag == 0);
+
+
+        mpz cm;
+        cipher(e, n, m, cm);
+
+
+        show_hex(cm);
+        std::cout << std::endl;
+
+        return 0;
+    }
+
+    if (decrypt.size() > 0){
+        // Decryption
+        mpz d, n, c;
+
+        int flag;
+
+        decrypt[1].erase(0, 2);
+        flag = mpz_set_str(d.value, decrypt[1].c_str(), 16);
+        assert(flag == 0);
+
+        decrypt[2].erase(0, 2);
+        flag = mpz_set_str(n.value, decrypt[2].c_str(), 16);
+        assert(flag == 0);
+
+        decrypt[3].erase(0, 2);
+        flag = mpz_set_str(c.value, decrypt[3].c_str(), 16);
+        assert(flag == 0);
+
+        mpz m;
+        decipher(d, n, c, m);
+        show_hex(m);
+        std::cout << std::endl;
+
+        return 0;
+
+    }
+
+    if (crack.size() > 0){
+        mpz n;
+
+        int flag;
+        crack[1].erase(0, 2);
+        flag = mpz_set_str(n.value, crack[1].c_str(), 16);
+        assert(flag == 0);
+
+        std::cout << mpz_sizeinbase(n.value, 2) << std::endl;
+        RSA_cracker(n);
+    }
 
     return 0;
 }
 
-
-
-///* вычисление a * *x + b * *y = gcd(a, b) = *d */
-//void extended_euclid(long a, long b, long *x, long *y, long *d) {
-//    long q, r, x1, x2, y1, y2;
-//    if (b == 0) {
-//        *d = a, *x = 1, *y = 0;
-//        return;
-//    }
-//
-//    x2 = 1, x1 = 0, y2 = 0, y1 = 1;
-//    while (b > 0) {
-//        q = a / b, r = a - q * b;
-//        *x = x2 - q * x1, *y = y2 - q * y1;
-//        a = b, b = r;
-//        x2 = x1, x1 = *x, y2 = y1, y1 = *y;
-//    }
-//
-//    *d = a, *x = x2, *y = y2;
-//}
-
-
-
-//long inverse(long a, long n) {
-//    long d, x, y;
-//    extended_euclid(a, n, &x, &y, &d);
-//    if (d == 1) return x;
-//    return 0;
-//}
 
