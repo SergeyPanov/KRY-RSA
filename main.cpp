@@ -211,6 +211,7 @@ void set_inverse(mpz_t a, mpz_t n, mpz_t x) {
     mpz_init(old_a);
 
     mpz_set(old_n, n);
+    mpz_set(old_a, a);
 
     extended_euclid_gmp(old_a, old_n, x, y, d);
 
@@ -344,7 +345,7 @@ void set_prime(int bit_size, mpz &number){
         mpz_add_ui(number.value, number.value,2);
     }
 }
-
+// Calculate e
 void set_e(int min, mpz &e, mpz &phi){
 
     mpz  r_n, gcd, init_gcd;
@@ -375,7 +376,7 @@ void set_e(int min, mpz &e, mpz &phi){
 
             set_gcd(right.value, phi.value, gcd.value);
 
-            if (mpz_cmp_ui(gcd.value, 1) == 0){
+            if (  (mpz_cmp_ui(gcd.value, 1) == 0) ){
                 mpz_set(e.value, right.value);
                 return;
             }
@@ -387,7 +388,7 @@ void set_e(int min, mpz &e, mpz &phi){
 
             set_gcd(left.value, phi.value, gcd.value);
 
-            if (mpz_cmp_ui(gcd.value, 1) == 0){
+            if ( (mpz_cmp_ui(gcd.value, 1) == 0)  ){
                 mpz_set(e.value, left.value);
                 return;
             }
@@ -397,7 +398,7 @@ void set_e(int min, mpz &e, mpz &phi){
 
 }
 
-
+//  Setup all used variables
 void RSA_prepare(mpz &p, mpz &q, mpz &n, mpz &e, mpz &d, int bit_size){
 
     set_prime(bit_size/2, p);   // Get p
@@ -424,14 +425,20 @@ void RSA_prepare(mpz &p, mpz &q, mpz &n, mpz &e, mpz &d, int bit_size){
 
     display("e: ", e.value);
 
-
     set_inverse(e.value, phi.value, d.value);
 
     display("d: ", d.value);
 
-
 }
 
+// Cipher input message
+void cipher(mpz &e, mpz &n, mpz &m, mpz &cm){
+    mpz_powm(cm.value, m.value, e.value, n.value);
+}
+// Decipher
+void decipher(mpz &d, mpz &n, mpz &c, mpz &m){
+    mpz_powm(m.value, c.value, d.value, n.value);
+}
 
 
 
@@ -439,9 +446,22 @@ int main() {
 
     mpz p, q, n, e, d;
 
-
     RSA_prepare(p, q, n, e, d, 96);
 
+    std::cout << mpz_sizeinbase(e.value, 2)  <<std::endl;
+
+    mpz m, cm;
+
+    mpz_set_ui(m.value, 9234235);
+    display("plain input: ", m.value);
+    cipher(e, n, m, cm);
+
+    display("ciphered text: ", cm.value);
+
+    mpz dm;
+    decipher(d, n, cm, dm);
+
+    display("deciphered: ", dm.value);
 
 
     return 0;
