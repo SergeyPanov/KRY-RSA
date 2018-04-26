@@ -5,9 +5,11 @@
 #include <string>
 #include <assert.h>
 
+
 #define ITERATIONS 1000000
 #define K 100
 
+// Wrapper for mpz_t
 class mpz{
 public:
     mpz_t value;
@@ -20,20 +22,21 @@ public:
         mpz_clear(value);
     }
 
+    void display(std::string name){
+        std::cout << name << ": ";
+        mpz_out_str(stdout, 10, value);
+        std::cout << std:: endl;
+    }
+
 };
 
-
+// Display
 void show_hex(mpz &n){
     gmp_printf("%#Zx ", n.value);
 }
 
-void display(std::string msg, mpz_t number){
-    std::cout << msg;
-    mpz_out_str(stdout, 10, number);
-    std::cout << std::endl;
-}
 
-// Store random bit_size number into r_number
+// Store random bit_size odd number into r_number
 void set_random_odd(int bit_size, mpz_t r_number){
 
     srand((int)(time(0)));
@@ -320,10 +323,6 @@ void set_e(int min, mpz &e, mpz &phi, int bit_size){
 
     set_random(min, phi.value, e.value);
 
-    // Set 2 MSB as 1
-    mpz_setbit(e.value, bit_size - 1);
-    mpz_setbit(e.value, bit_size - 2);
-
 
     set_gcd(e.value, phi.value, gcd.value);
 
@@ -368,12 +367,16 @@ void set_e(int min, mpz &e, mpz &phi, int bit_size){
     }
 }
 
+
 //  Setup all used variables
 void RSA_prepare(mpz &p, mpz &q, mpz &n, mpz &e, mpz &d, int bit_size){
 
-    set_prime(bit_size/2, p);   // Get p
+    int p_bit_size = ceil((double)bit_size / 2);
+    int q_bit_size = floor((double)bit_size / 2);
 
-    set_prime(bit_size/2, q);   // Get q
+    set_prime(p_bit_size, p);   // Get p
+
+    set_prime(q_bit_size, q);   // Get q
 
     mpz_mul(n.value, p.value, q.value); // Get n
 
@@ -400,7 +403,8 @@ void decipher(mpz &d, mpz &n, mpz &c, mpz &m){
 }
 
 // True if successfully False otherwise. p, q contains multipliers
-bool simple_factorization(mpz &n, mpz &p, mpz &q){
+bool simple_factorization(mpz &n, mpz &p){
+
     mpz reminder;
     unsigned int divider = 2;
     // Iters 1 000 000 times
@@ -419,149 +423,159 @@ bool simple_factorization(mpz &n, mpz &p, mpz &q){
             if ( miller_rabin_is_prime(res, K) && miller_rabin_is_prime(mpz_divider, K) ){
 
                 mpz_set(p.value, mpz_divider.value);
-                mpz_set(q.value, res.value);
                 return true;
             }
         }
-
         ++divider;
     }
-
     mpz_set_ui(p.value, 0);
-    mpz_set_ui(q.value, 0);
     return false;
 }
 
 
-void pollar_rho_factorization_star(mpz &n, mpz &p, mpz &q){
+// m <- nid(a, b)
+void min(mpz& a, mpz& b, mpz& m){
+    if (mpz_cmp(a.value, b.value) > 0){
+        mpz_set(m.value, b.value);
+    } else{
+        mpz_set(m.value, a.value);
+    }
+}
 
+// Brent-Pollard pho implementation
+// See http://maths-people.anu.edu.au/~brent/pd/rpb051i.pdf
+void rho(mpz &n, mpz& res) {
 
-    if (mpz_cmp_ui(n.value, 1) == 0){
-        std:: cout << "n pho_factor" << std::endl;
+    mpz mod_2;
+    mpz_mod_ui(mod_2.value, n.value, 2);
+
+    if (mpz_cmp_ui(mod_2.value, 0) == 0){
+        mpz_set_ui(res.value, 2);
         return;
     }
 
-    mpz two_reminder;
-    mpz_mod_ui(two_reminder.value, n.value, 2);
-    if (mpz_sgn(two_reminder.value) == 0){
-        std::cout << "obe factor is 2" << std::endl;
-        return;
+    mpz y, c, m;
+    mpz right_bound;
+
+    mpz_sub_ui(right_bound.value, n.value, 1);  // right_bound <- N - 1
+
+    set_random(1, right_bound.value, y.value);  // y <- [1 .. N - 1)
+
+
+    set_random(1, right_bound.value, c.value);  // c <- [1 .. N - 1)
+
+    set_random(1, right_bound.value, m.value);  // m <- [1 .. N - 1)
+
+
+    mpz g, r, q;
+    mpz_set_ui(g.value, 1); // g <- 1
+    mpz_set_ui(r.value, 1); // r <- 1
+    mpz_set_ui(q.value, 1); // q <- 1
+
+    mpz ys, x;
+
+    while (mpz_cmp_ui(g.value, 1) == 0){    // while gcd == 1
+
+        mpz_set(x.value, y.value);  // x <- y
+
+        mpz i;
+        mpz_set_ui(i.value, 0); // i <- 0
+
+        while (mpz_cmp(i.value, r.value) < 0){  // for i in [0 .. r)
+
+            mpz_mul(y.value, y.value, y.value); // y <- y*y
+
+            mpz_mod(y.value, y.value, n.value); // y <- y mod N
+
+            mpz_add(y.value, y.value, c.value); // y <- y + c
+
+            mpz_mod(y.value, y.value, n.value); // y <- y mod N
+
+            mpz_add_ui(i.value, i.value, 1);
+        }
+
+        mpz k;
+        mpz_set_ui(k.value, 0); // k <- 0
+
+        while ( (mpz_cmp(k.value, r.value) < 0) && (mpz_cmp_ui(g.value, 1) == 0) ){ // while k < r && gdc == 1
+
+
+            mpz_set(ys.value, y.value); // ys <- y
+
+            mpz r_sub_k;
+            mpz_sub(r_sub_k.value, r.value, k.value);   // r_sub_k <- r - k
+
+            mpz min_acc;
+            min(m, r_sub_k, min_acc);   // min_acc <- min(m, r - k)
+
+            mpz ii;
+            mpz_set_ui(ii.value, 0);    // ii <- 0
+
+            while ( mpz_cmp(ii.value, min_acc.value) < 0 ){  // while i < min(m, r-k)
+
+                mpz_mul(y.value, y.value, y.value); // y <- y*y
+                mpz_mod(y.value, y.value, n.value); // y <- y mod N
+                mpz_add(y.value, y.value, c.value); // y <- y + c
+                mpz_mod(y.value, y.value, n.value); // y <- y mod N
+
+                mpz x_sub_y;
+                mpz_sub(x_sub_y.value, x.value, y.value);
+                mpz_abs(x_sub_y.value, x_sub_y.value);  // abs(x-y)
+
+                mpz_mul(q.value, q.value, x_sub_y.value);   // q <- q*abs(x-y)
+                mpz_mod(q.value, q.value, n.value); // q <- q % N
+
+
+                mpz_add_ui(ii.value, ii.value, 1);
+            }
+
+            set_gcd(q.value, n.value, g.value); // g <- gcd(N, q)
+            mpz_add(k.value, k.value, m.value); // k <- k + m
+
+        }
+        mpz_mul_ui(r.value, r.value, 2);
     }
 
-    mpz x, y, d, c;
-    set_random(2, n.value, x.value);    // Set x <- [2 .. N)
 
-    mpz_set(y.value, x.value);  // Set y <- x
+    if (mpz_cmp(g.value, n.value) == 0){    // if gcd == N
 
+        while (true){
 
-    set_random(1, n.value, c.value);    // Set c <- [2 .. N)
+            mpz_mul(ys.value, ys.value, ys.value); // y <- y*y
+            mpz_mod(ys.value, ys.value, n.value); // y <- y mod N
+            mpz_add(ys.value, ys.value, c.value); // y <- y + c
+            mpz_mod(ys.value, ys.value, n.value); // y <- y mod N
 
-    mpz_set_ui(d.value, 1);
+            mpz x_sub_ys;
+            mpz_sub(x_sub_ys.value, x.value, ys.value);
+            mpz_abs(x_sub_ys.value, x_sub_ys.value);    // |x - ys|
 
-    while (mpz_cmp_ui(d.value, 1) == 0){
+            set_gcd(x_sub_ys.value, n.value, g.value);
 
-        mpz_powm_ui(x.value, x.value, 2, n.value);  // x <- x^2 mod n   x <- f(x)
-        mpz aux_x;
-        mpz_add(aux_x.value, c.value, n.value);   // aux_x <- c + n
-        mpz_add(x.value, x.value, aux_x.value);   // x <- x + aux_x ~ (x^2 mod n) + c + n
-        mpz_mod(x.value, x.value, n.value); // x <-  ((x^2 mod n) + c + n) mod n
-
-
-        mpz_powm_ui(x.value, x.value, 2, n.value);
-        mpz_powm_ui(x.value, x.value, 2, n.value);  // y <- f(f(y))
-        mpz aux_y;
-        mpz_add(aux_y.value, c.value, n.value);   // aux_y <- c + n
-        mpz_add(y.value, y.value, aux_y.value);   // y <- y + aux_x ~ (y^2 mod n) + c + n
-        mpz_mod(y.value, y.value, n.value); // x <-  ((y^2 mod n) + c + n) mod n
-
-
-        mpz substract;
-
-        mpz_sub(substract.value, x.value, y.value);
-        mpz_abs(substract.value, substract.value);  // Calculate |x - y|
-
-        set_gcd(substract.value, n.value, d.value); // Calculate GDC(|x-y|, n)
-
-
-
-        if (mpz_cmp(d.value, n.value) == 0){
-            std::cout << "recursion" << std::endl;
-            pollar_rho_factorization_star(n, p, q);
+            if (mpz_cmp_ui(g.value, 1) > 0){
+                break;
+            }
         }
     }
 
-
-    mpz_set(p.value, d.value);
-    mpz_div(q.value, n.value, d.value);
-
+    mpz_set(res.value, g.value);
 }
 
 
-void fermat_factorization_method(mpz &n){
-    mpz n_cpy;
-    mpz_set(n_cpy.value, n.value);
 
-    if (mpz_perfect_square_p(n_cpy.value) != 0){
-        mpz_sqrt(n_cpy.value, n_cpy.value);
-        display("p: ", n_cpy.value);
-        show_hex(n_cpy);
-        return;
-    }
-
-    mpz a;
-    mpz_sqrt(a.value, n_cpy.value);
-    mpz_add_ui(a.value, a.value, 1);    // ceil(sqrt(N))
-
-    mpz a2;
-    mpz_mul(a2.value, a.value, a.value);    // a2 <- a*a
-
-
-    mpz b2;
-    mpz_sub(b2.value, a2.value, n_cpy.value);   // b2 <- a*a - N
-
-
-    while (mpz_perfect_square_p(b2.value) == 0){
-
-        mpz_add_ui(a.value, a.value, 1);
-
-        mpz_mul(a2.value, a.value, a.value);
-
-        mpz_sub(b2.value, a2.value, n_cpy.value);
-    }
-    mpz p, b_sqr;
-    mpz_sqrt(b_sqr.value, b2.value);
-
-    mpz_sub(p.value, a.value, b_sqr.value);
-
-    display("p: ", p.value);
-    show_hex(p);
-    std::cout << std::endl;
-
-}
-
-void RSA_cracker(mpz &n){
+// Execute factorization for n, write result to res
+void RSA_cracker(mpz &n, mpz &res){
     mpz n_cpy;
     mpz_set(n_cpy.value,n.value);
 
-    fermat_factorization_method(n);
 
-
-//    mpz p, q;
-//    if (simple_factorization(n, p, q)){
-//        display("p factorized by simple: ", p.value);
-//        show_hex(p);
-//        std::cout << std::endl;
-////        display("q factorized by simple: ", q.value);
-//
-//    } else{
-//        pollar_rho_factorization_star(n_cpy, p, q);
-//        display("p factorized by rho: ", p.value);
-//        show_hex(p);
-//        std::cout << std::endl;
-////        display("q factorized by rho: ", q.value);
-//    }
+    if (!simple_factorization(n, res)){
+        rho(n, res);
+    }
 }
 
+
+// Parse input parameters
 std::vector< std::string > get_opts(int argc, char* argv[], char key){
     std::vector< std::string > params;
 
@@ -593,7 +607,7 @@ int main(int argc, char* argv[]) {
 
     std::vector<std::string> crack = get_opts(argc, argv, 'b');
 
-    if (generate.size() > 0){
+    if (generate.size() == 2){
         // Generate
         int bit_size;
 
@@ -609,13 +623,12 @@ int main(int argc, char* argv[]) {
         show_hex(e);
         show_hex(d);
 
-//        std::cout << "e: " << mpz_sizeinbase(e.value, 2) << std::endl;
         std::cout << std::endl;
 
         return 0;
     }
-//
-    if (encrypt.size() > 0){
+
+    if (encrypt.size() == 4){
         // Encryption
         mpz e, n, m;
 
@@ -644,8 +657,8 @@ int main(int argc, char* argv[]) {
 
         return 0;
     }
-//
-    if (decrypt.size() > 0){
+
+    if (decrypt.size() == 4){
         // Decryption
         mpz d, n, c;
 
@@ -669,19 +682,19 @@ int main(int argc, char* argv[]) {
         std::cout << std::endl;
 
         return 0;
-
     }
-//
-    if (crack.size() > 0){
-        mpz n;
 
+    if (crack.size() == 2){
+        mpz n, res;
         int flag;
         crack[1].erase(0, 2);
         flag = mpz_set_str(n.value, crack[1].c_str(), 16);
         assert(flag == 0);
 
-//        std::cout << mpz_sizeinbase(n.value, 2) << std::endl;
-        RSA_cracker(n);
+        RSA_cracker(n, res);
+
+        show_hex(res);
+        std::cout << std::endl;
     }
 
     return 0;
