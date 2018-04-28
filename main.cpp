@@ -444,7 +444,7 @@ void min(mpz& a, mpz& b, mpz& m){
 
 // Brent-Pollard pho implementation
 // See http://maths-people.anu.edu.au/~brent/pd/rpb051i.pdf
-void rho(mpz &n, mpz& res) {
+void pollard_rho_brent(mpz &n, mpz& res) {
 
     mpz mod_2;
     mpz_mod_ui(mod_2.value, n.value, 2);
@@ -570,7 +570,7 @@ void RSA_cracker(mpz &n, mpz &res){
 
 
     if (!simple_factorization(n, res)){
-        rho(n, res);
+        pollard_rho_brent(n, res);
     }
 }
 
